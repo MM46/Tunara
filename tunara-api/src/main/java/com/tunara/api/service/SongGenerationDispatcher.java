@@ -52,12 +52,7 @@ public class SongGenerationDispatcher {
                     event.durationSeconds()
                 )
             );
-
-            int acknowledgedProgress = response != null && response.progress() != null
-                ? response.progress()
-                : 0;
-
-            markAsAccepted(event, acknowledgedProgress);
+            markAsCompleted(event, response);
         } catch (Exception exception) {
             markAsFailed(event, exception);
         }
@@ -67,12 +62,11 @@ public class SongGenerationDispatcher {
     public void markAsProcessing(SongGenerationRequestedEvent event) {
         Song song = songRepository.findById(event.songId()).orElseThrow();
         GenerationJob job = generationJobRepository
-            .findById(event.generationJobId())
-            .orElseThrow();
+            .findById(event.generationJobId()).orElseThrow();
 
         song.setStatus(SongStatus.PROCESSING);
         job.setStatus(GenerationJobStatus.PROCESSING);
-        job.setProgress(5);
+        job.setProgress(10);
         job.setStartedAt(OffsetDateTime.now());
         job.setErrorMessage(null);
 
@@ -81,16 +75,32 @@ public class SongGenerationDispatcher {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markAsAccepted(
+    public void markAsCompleted(
         SongGenerationRequestedEvent event,
-        int acknowledgedProgress
+        AiGenerateSongResponse response
     ) {
-        GenerationJob job = generationJobRepository
-            .findById(event.generationJobId())
-            .orElseThrow();
+        if (response == null || response.title() == null
+            || response.title().isBlank() || response.lyrics() == null
+            || response.lyrics().isBlank()) {
+            throw new IllegalStateException(
+                "Tunara AI returned an incomplete lyrics response"
+            );
+        }
 
-        job.setStatus(GenerationJobStatus.PROCESSING);
-        job.setProgress(Math.max(10, Math.min(acknowledgedProgress, 95)));
+        Song song = songRepository.findById(event.songId()).orElseThrow();
+        GenerationJob job = generationJobRepository
+            .findById(event.generationJobId()).orElseThrow();
+
+        song.setTitle(response.title().trim());
+        song.setLyrics(response.lyrics().trim());
+        song.setStatus(SongStatus.COMPLETED);
+
+        job.setStatus(GenerationJobStatus.COMPLETED);
+        job.setProgress(100);
+        job.setCompletedAt(OffsetDateTime.now());
+        job.setErrorMessage(null);
+
+        songRepository.save(song);
         generationJobRepository.save(job);
     }
 
@@ -101,8 +111,7 @@ public class SongGenerationDispatcher {
     ) {
         Song song = songRepository.findById(event.songId()).orElseThrow();
         GenerationJob job = generationJobRepository
-            .findById(event.generationJobId())
-            .orElseThrow();
+            .findById(event.generationJobId()).orElseThrow();
 
         song.setStatus(SongStatus.FAILED);
         job.setStatus(GenerationJobStatus.FAILED);
@@ -115,13 +124,9 @@ public class SongGenerationDispatcher {
 
     private String buildErrorMessage(Exception exception) {
         String message = exception.getMessage();
-
         if (message == null || message.isBlank()) {
             return "Tunara AI service request failed";
         }
-
-        return message.length() <= 1000
-            ? message
-            : message.substring(0, 1000);
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
     }
 }

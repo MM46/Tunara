@@ -8,6 +8,8 @@ public record AiGenerateSongResponse(
     @JsonProperty("song_id") UUID songId,
     String status,
     Integer progress,
-    String message
+    String message,
+    String title,
+    String lyrics
 ) {
 }

@@ -1,10 +1,23 @@
+from .lyrics_service import LyricsService
+from .ollama_client import OllamaClient
 from .schemas import GenerateSongRequest, GenerateSongResponse
 
+
 class GenerationService:
-    async def generate(self, request: GenerateSongRequest) -> GenerateSongResponse:
+    def __init__(self) -> None:
+        self.lyrics_service = LyricsService(OllamaClient())
+
+    async def generate(
+        self,
+        request: GenerateSongRequest,
+    ) -> GenerateSongResponse:
+        title, lyrics = await self.lyrics_service.generate(request)
+
         return GenerateSongResponse(
             song_id=request.song_id,
-            status="PENDING",
-            progress=0,
-            message="Generation request accepted. Model pipeline is not configured yet.",
+            status="COMPLETED",
+            progress=100,
+            message="Lyrics generated successfully with Ollama.",
+            title=title,
+            lyrics=lyrics,
         )
