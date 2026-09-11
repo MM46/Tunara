@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 generated-audio/
 generated-midi/
+generated-packs/
 .env
