@@ -9,3 +9,5 @@ tunara-audio/generated-audio/
 !.pids/.gitkeep
 logs/*
 !logs/.gitkeep
+
+generated-midi/
