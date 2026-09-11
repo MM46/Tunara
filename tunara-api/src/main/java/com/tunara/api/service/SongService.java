@@ -6,9 +6,11 @@ import com.tunara.api.entity.GenerationJob;
 import com.tunara.api.entity.GenerationJobStatus;
 import com.tunara.api.entity.Song;
 import com.tunara.api.entity.SongStatus;
+import com.tunara.api.event.SongGenerationRequestedEvent;
 import com.tunara.api.exception.ResourceNotFoundException;
 import com.tunara.api.repository.GenerationJobRepository;
 import com.tunara.api.repository.SongRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,13 +23,16 @@ public class SongService {
 
     private final SongRepository songRepository;
     private final GenerationJobRepository generationJobRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SongService(
         SongRepository songRepository,
-        GenerationJobRepository generationJobRepository
+        GenerationJobRepository generationJobRepository,
+        ApplicationEventPublisher eventPublisher
     ) {
         this.songRepository = songRepository;
         this.generationJobRepository = generationJobRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -43,37 +48,74 @@ public class SongService {
 
         Song savedSong = songRepository.save(song);
 
-        GenerationJob job = new GenerationJob();
-        job.setSong(savedSong);
-        job.setStatus(GenerationJobStatus.PENDING);
-        job.setProgress(0);
-        generationJobRepository.save(job);
+        GenerationJob generationJob = new GenerationJob();
+        generationJob.setSong(savedSong);
+        generationJob.setStatus(GenerationJobStatus.PENDING);
+        generationJob.setProgress(0);
+
+        GenerationJob savedJob = generationJobRepository.save(generationJob);
+
+        eventPublisher.publishEvent(
+            new SongGenerationRequestedEvent(
+                savedSong.getId(),
+                savedJob.getId(),
+                savedSong.getPrompt(),
+                savedSong.getGenre(),
+                savedSong.getVoice(),
+                savedSong.getLanguage(),
+                savedSong.getDurationSeconds()
+            )
+        );
 
         return toResponse(savedSong);
     }
 
     @Transactional(readOnly = true)
     public List<SongResponse> getAllSongs() {
-        return songRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
-            .stream().map(this::toResponse).toList();
+        return songRepository
+            .findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+            .stream()
+            .map(this::toResponse)
+            .toList();
     }
 
     @Transactional(readOnly = true)
     public SongResponse getSongById(UUID songId) {
-        return toResponse(songRepository.findById(songId)
-            .orElseThrow(() -> new ResourceNotFoundException("Song not found: " + songId)));
+        Song song = songRepository.findById(songId)
+            .orElseThrow(
+                () -> new ResourceNotFoundException(
+                    "Song not found: " + songId
+                )
+            );
+
+        return toResponse(song);
     }
 
     private String generateTitle(String prompt) {
-        String normalized = prompt.trim();
-        return normalized.length() <= 60 ? normalized : normalized.substring(0, 57) + "...";
+        String normalizedPrompt = prompt.trim();
+
+        if (normalizedPrompt.length() <= 60) {
+            return normalizedPrompt;
+        }
+
+        return normalizedPrompt.substring(0, 57) + "...";
     }
 
     private SongResponse toResponse(Song song) {
         return new SongResponse(
-            song.getId(), song.getTitle(), song.getPrompt(), song.getLyrics(), song.getGenre(),
-            song.getVoice(), song.getLanguage(), song.getDurationSeconds(), song.getStatus(),
-            song.getCoverUrl(), song.getMp3Url(), song.getWavUrl(), song.getCreatedAt(),
+            song.getId(),
+            song.getTitle(),
+            song.getPrompt(),
+            song.getLyrics(),
+            song.getGenre(),
+            song.getVoice(),
+            song.getLanguage(),
+            song.getDurationSeconds(),
+            song.getStatus(),
+            song.getCoverUrl(),
+            song.getMp3Url(),
+            song.getWavUrl(),
+            song.getCreatedAt(),
             song.getUpdatedAt()
         );
     }
