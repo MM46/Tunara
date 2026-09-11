@@ -3,3 +3,9 @@
 tunara-ai/.venv-audio/
 tunara-ai/generated-audio/
 tunara-audio/generated-audio/
+
+# Runtime files
+.pids/*
+!.pids/.gitkeep
+logs/*
+!logs/.gitkeep
