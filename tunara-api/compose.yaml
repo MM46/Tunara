@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: tunara-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tunara
+      POSTGRES_USER: tunara
+      POSTGRES_PASSWORD: tunara_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - tunara_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tunara -d tunara"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tunara_postgres_data:

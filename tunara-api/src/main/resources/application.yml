@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: tunara-api
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tunara
+    username: tunara
+    password: tunara_dev_password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
