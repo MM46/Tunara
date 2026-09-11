@@ -2,8 +2,11 @@ package com.tunara.api.service;
 
 import com.tunara.api.dto.CreateSongRequest;
 import com.tunara.api.dto.SongResponse;
+import com.tunara.api.entity.GenerationJob;
+import com.tunara.api.entity.GenerationJobStatus;
 import com.tunara.api.entity.Song;
 import com.tunara.api.entity.SongStatus;
+import com.tunara.api.repository.GenerationJobRepository;
 import com.tunara.api.repository.SongRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -16,9 +19,14 @@ import java.util.UUID;
 public class SongService {
 
     private final SongRepository songRepository;
+    private final GenerationJobRepository generationJobRepository;
 
-    public SongService(SongRepository songRepository) {
+    public SongService(
+        SongRepository songRepository,
+        GenerationJobRepository generationJobRepository
+    ) {
         this.songRepository = songRepository;
+        this.generationJobRepository = generationJobRepository;
     }
 
     @Transactional
@@ -35,12 +43,23 @@ public class SongService {
 
         Song savedSong = songRepository.save(song);
 
+        GenerationJob generationJob = new GenerationJob();
+
+        generationJob.setSong(savedSong);
+        generationJob.setStatus(GenerationJobStatus.PENDING);
+        generationJob.setProgress(0);
+
+        generationJobRepository.save(generationJob);
+
         return toResponse(savedSong);
     }
 
     @Transactional(readOnly = true)
     public List<SongResponse> getAllSongs() {
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        Sort sort = Sort.by(
+            Sort.Direction.DESC,
+            "createdAt"
+        );
 
         return songRepository.findAll(sort)
             .stream()
