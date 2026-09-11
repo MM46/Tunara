@@ -1,17 +1,13 @@
 # Tunara Audio
 
-Native Apple Silicon service for MusicGen through MLX.
+Native Apple Silicon service for MusicGen through MLX and vocal melody guide generation.
 
-Run this service from the ARM Python 3.11 environment where
-`mlx-audiocraft` is installed:
+Available endpoints:
 
-```bash
-cd ~/Tunara/tunara-ai
-source .venv-audio/bin/activate
-cd ../tunara-audio
-uvicorn app.main:app --host 0.0.0.0 --port 8001
-```
+- `GET /health`
+- `POST /api/instrumentals`
+- `POST /api/vocal-melodies`
+- `GET /audio/{file}.wav`
+- `GET /midi/{file}.mid`
 
-The development service caps generated instrumentals at 30 seconds to
-keep local generation practical. This limit is configurable through
-`MUSICGEN_MAX_DURATION_SECONDS`.
+The MIDI melody is a deterministic development guide derived from the lyrics, genre, and requested duration. It is not yet a sung vocal performance. The next stage sends this guide to a singing synthesizer.

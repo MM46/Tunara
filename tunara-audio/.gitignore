@@ -2,4 +2,5 @@
 __pycache__/
 *.pyc
 generated-audio/
+generated-midi/
 .env

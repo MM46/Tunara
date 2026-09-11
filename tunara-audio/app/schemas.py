@@ -14,3 +14,20 @@ class InstrumentalResponse(BaseModel):
     progress: int
     wav_url: str
     generated_duration_seconds: int
+
+
+class VocalMelodyRequest(BaseModel):
+    song_id: str = Field(min_length=1)
+    lyrics: str = Field(min_length=1, max_length=20000)
+    genre: str = Field(min_length=1, max_length=100)
+    duration_seconds: int = Field(ge=10, le=600)
+
+
+class VocalMelodyResponse(BaseModel):
+    song_id: str
+    status: str
+    progress: int
+    midi_url: str
+    bpm: int
+    note_count: int
+    generated_duration_seconds: float
