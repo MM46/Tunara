@@ -10,6 +10,7 @@ public record AiGenerateSongResponse(
     Integer progress,
     String message,
     String title,
-    String lyrics
+    String lyrics,
+    @JsonProperty("wav_url") String wavUrl
 ) {
 }

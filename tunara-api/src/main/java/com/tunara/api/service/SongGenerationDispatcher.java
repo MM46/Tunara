@@ -79,11 +79,17 @@ public class SongGenerationDispatcher {
         SongGenerationRequestedEvent event,
         AiGenerateSongResponse response
     ) {
-        if (response == null || response.title() == null
-            || response.title().isBlank() || response.lyrics() == null
-            || response.lyrics().isBlank()) {
+        if (
+            response == null
+                || response.title() == null
+                || response.title().isBlank()
+                || response.lyrics() == null
+                || response.lyrics().isBlank()
+                || response.wavUrl() == null
+                || response.wavUrl().isBlank()
+        ) {
             throw new IllegalStateException(
-                "Tunara AI returned an incomplete lyrics response"
+                "Tunara AI returned an incomplete generation response"
             );
         }
 
@@ -93,6 +99,7 @@ public class SongGenerationDispatcher {
 
         song.setTitle(response.title().trim());
         song.setLyrics(response.lyrics().trim());
+        song.setWavUrl(response.wavUrl().trim());
         song.setStatus(SongStatus.COMPLETED);
 
         job.setStatus(GenerationJobStatus.COMPLETED);
@@ -127,6 +134,8 @@ public class SongGenerationDispatcher {
         if (message == null || message.isBlank()) {
             return "Tunara AI service request failed";
         }
-        return message.length() <= 1000 ? message : message.substring(0, 1000);
+        return message.length() <= 1000
+            ? message
+            : message.substring(0, 1000);
     }
 }

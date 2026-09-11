@@ -6,11 +6,25 @@ from .ollama_client import OllamaClient
 from .schemas import GenerateSongRequest
 
 
+LYRICS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "A short original song title",
+        },
+        "lyrics": {
+            "type": "string",
+            "description": "Complete original lyrics with section labels",
+        },
+    },
+    "required": ["title", "lyrics"],
+    "additionalProperties": False,
+}
+
+
 class LyricsService:
-    def __init__(
-        self,
-        ollama_client: OllamaClient,
-    ) -> None:
+    def __init__(self, ollama_client: OllamaClient) -> None:
         self.ollama_client = ollama_client
 
     async def generate(
@@ -18,197 +32,128 @@ class LyricsService:
         request: GenerateSongRequest,
     ) -> tuple[str, str]:
         prompt = self._build_prompt(request)
-
         raw_response = await self.ollama_client.generate(
-            prompt
-        )
-
-        return self._parse_response(raw_response)
-
-    def _build_prompt(
-        self,
-        request: GenerateSongRequest,
-    ) -> str:
-        return f"""
-You are a professional songwriter.
-
-Create a fully original song using these requirements:
-
-User idea:
-{request.prompt}
-
-Genre:
-{request.genre}
-
-Language:
-{request.language}
-
-Voice style:
-{request.voice}
-
-Target duration:
-{request.duration_seconds} seconds
-
-Song requirements:
-
-1. Write an original and memorable title.
-2. Write complete original lyrics.
-3. Match the requested language.
-4. Match the requested genre.
-5. Do not imitate or quote existing artists or songs.
-6. Use this structure when appropriate:
-   [Intro]
-   [Verse 1]
-   [Chorus]
-   [Verse 2]
-   [Chorus]
-   [Bridge]
-   [Final Chorus]
-   [Outro]
-
-Return one JSON object only.
-
-The JSON object must contain exactly these fields:
-
-{{
-  "title": "Short song title",
-  "lyrics": "Complete lyrics with line breaks"
-}}
-
-Do not include Markdown.
-Do not include code fences.
-Do not include explanations.
-Do not include text before or after the JSON object.
-""".strip()
-
-    def _parse_response(
-        self,
-        raw_response: str,
-    ) -> tuple[str, str]:
-        cleaned_response = self._clean_response(
-            raw_response
+            prompt,
+            response_schema=LYRICS_SCHEMA,
         )
 
         try:
-            parsed_response: Any = json.loads(
-                cleaned_response
+            return self._parse_response(raw_response)
+        except RuntimeError:
+            retry_response = await self.ollama_client.generate(
+                self._build_retry_prompt(request, raw_response),
+                response_schema=LYRICS_SCHEMA,
             )
-        except json.JSONDecodeError:
-            extracted_json = self._extract_json_object(
-                cleaned_response
-            )
+            return self._parse_response(retry_response)
 
-            try:
-                parsed_response = json.loads(
-                    extracted_json
-                )
-            except json.JSONDecodeError as exception:
-                raise RuntimeError(
-                    "Ollama did not return valid JSON. "
-                    f"Response received: "
-                    f"{cleaned_response[:500]}"
-                ) from exception
+    def _build_prompt(self, request: GenerateSongRequest) -> str:
+        return f"""
+Create a fully original song.
 
-        if not isinstance(parsed_response, dict):
-            raise RuntimeError(
-                "Ollama response must be a JSON object"
-            )
+Idea: {request.prompt}
+Genre: {request.genre}
+Language: {request.language}
+Voice style: {request.voice}
+Target duration: {request.duration_seconds} seconds
 
-        title = str(
-            parsed_response.get("title", "")
-        ).strip()
+Requirements:
+- Return an original, memorable title.
+- Return complete original lyrics in the requested language.
+- Match the requested genre.
+- Use section labels such as [Intro], [Verse 1], [Chorus], [Verse 2], [Bridge], and [Outro].
+- Do not imitate or quote an existing artist or song.
+- Follow the supplied JSON schema exactly.
+""".strip()
 
-        lyrics = str(
-            parsed_response.get("lyrics", "")
-        ).strip()
-
-        if not title:
-            raise RuntimeError(
-                "Ollama response is missing the song title"
-            )
-
-        if not lyrics:
-            raise RuntimeError(
-                "Ollama response is missing the song lyrics"
-            )
-
-        normalized_title = self._normalize_title(title)
-        normalized_lyrics = self._normalize_lyrics(lyrics)
-
-        return normalized_title, normalized_lyrics
-
-    def _clean_response(
+    def _build_retry_prompt(
         self,
-        raw_response: str,
+        request: GenerateSongRequest,
+        invalid_response: str,
     ) -> str:
-        cleaned_response = raw_response.strip()
+        return f"""
+The previous answer did not match the required JSON schema.
+Create the song again and return only the required structured object.
 
-        cleaned_response = re.sub(
+Idea: {request.prompt}
+Genre: {request.genre}
+Language: {request.language}
+Voice style: {request.voice}
+Target duration: {request.duration_seconds} seconds
+
+Do not add Markdown, explanations, or text outside the structured response.
+Previous invalid answer for context:
+{invalid_response[:1500]}
+""".strip()
+
+    def _parse_response(self, raw_response: str) -> tuple[str, str]:
+        cleaned = self._clean_response(raw_response)
+        parsed = self._load_json(cleaned)
+
+        if not isinstance(parsed, dict):
+            raise RuntimeError("Ollama response must be a JSON object")
+
+        title = str(parsed.get("title", "")).strip()
+        lyrics = str(parsed.get("lyrics", "")).strip()
+
+        if not title or not lyrics:
+            raise RuntimeError(
+                "Ollama response is missing title or lyrics"
+            )
+
+        return self._normalize_title(title), self._normalize_lyrics(lyrics)
+
+    def _load_json(self, response: str) -> Any:
+        candidates = [response]
+
+        extracted = self._extract_json_object(response)
+        if extracted and extracted != response:
+            candidates.append(extracted)
+
+        unwrapped = self._unwrap_quoted_json(response)
+        if unwrapped and unwrapped not in candidates:
+            candidates.append(unwrapped)
+
+        for candidate in candidates:
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, str):
+                    parsed = json.loads(parsed)
+                return parsed
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+        raise RuntimeError(
+            "Ollama did not return valid structured JSON"
+        )
+
+    def _clean_response(self, response: str) -> str:
+        cleaned = response.strip()
+        cleaned = re.sub(
             r"^```(?:json)?\s*",
             "",
-            cleaned_response,
+            cleaned,
             flags=re.IGNORECASE,
         )
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        return cleaned.strip()
 
-        cleaned_response = re.sub(
-            r"\s*```$",
-            "",
-            cleaned_response,
-        )
+    def _extract_json_object(self, response: str) -> str | None:
+        start = response.find("{")
+        end = response.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+        return response[start:end + 1]
 
-        return cleaned_response.strip()
+    def _unwrap_quoted_json(self, response: str) -> str | None:
+        try:
+            value = json.loads(response)
+        except json.JSONDecodeError:
+            return None
+        return value if isinstance(value, str) else None
 
-    def _extract_json_object(
-        self,
-        response: str,
-    ) -> str:
-        start_index = response.find("{")
-        end_index = response.rfind("}")
+    def _normalize_title(self, title: str) -> str:
+        return re.sub(r"\s+", " ", title.replace("\n", " ")).strip()[:255]
 
-        if (
-            start_index == -1
-            or end_index == -1
-            or end_index <= start_index
-        ):
-            raise RuntimeError(
-                "Ollama response does not contain "
-                "a JSON object"
-            )
-
-        return response[
-            start_index:end_index + 1
-        ]
-
-    def _normalize_title(
-        self,
-        title: str,
-    ) -> str:
-        normalized_title = title.replace(
-            "\n",
-            " ",
-        ).strip()
-
-        normalized_title = re.sub(
-            r"\s+",
-            " ",
-            normalized_title,
-        )
-
-        return normalized_title[:255]
-
-    def _normalize_lyrics(
-        self,
-        lyrics: str,
-    ) -> str:
-        normalized_lyrics = lyrics.replace(
-            "\\n",
-            "\n",
-        ).strip()
-
-        normalized_lyrics = re.sub(
-            r"\n{3,}",
-            "\n\n",
-            normalized_lyrics,
-        )
-
-        return normalized_lyrics
+    def _normalize_lyrics(self, lyrics: str) -> str:
+        normalized = lyrics.replace("\\n", "\n").strip()
+        return re.sub(r"\n{3,}", "\n\n", normalized)

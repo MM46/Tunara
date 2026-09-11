@@ -1,0 +1,5 @@
+
+# Local Python environments and generated audio
+tunara-ai/.venv-audio/
+tunara-ai/generated-audio/
+tunara-audio/generated-audio/

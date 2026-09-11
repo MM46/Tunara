@@ -17,3 +17,4 @@ class GenerateSongResponse(BaseModel):
     message: str
     title: str
     lyrics: str
+    wav_url: str
