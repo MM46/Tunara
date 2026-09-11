@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Clock3, LoaderCircle, Music2, RefreshCw } from "lucide-react";
 
@@ -53,8 +54,7 @@ export default function RecentSongs() {
     setErrorMessage("");
 
     try {
-      const response = await getSongs();
-      setSongs(response);
+      setSongs(await getSongs());
     } catch (error) {
       console.error("Unable to load songs:", error);
       setErrorMessage(
@@ -125,54 +125,61 @@ export default function RecentSongs() {
       {!isLoading && !errorMessage && songs.length > 0 && (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {songs.slice(0, 6).map((song, index) => (
-            <article
+            <Link
               key={song.id}
-              className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 transition hover:-translate-y-1 hover:border-violet-500/50"
+              href={`/songs/${song.id}`}
+              aria-label={`Open ${song.title}`}
+              className="group block overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 transition hover:-translate-y-1 hover:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500"
             >
-              <div
-                className={`flex h-40 items-center justify-center bg-gradient-to-br ${
-                  coverStyles[index % coverStyles.length]
-                }`}
-              >
-                <Music2 className="text-white/80" size={42} />
-              </div>
-
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="line-clamp-1 font-semibold text-white">
-                    {song.title}
-                  </h3>
-                  <span
-                    className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(
-                      song.status
-                    )}`}
-                  >
-                    {song.status}
-                  </span>
+              <article>
+                <div
+                  className={`flex h-40 items-center justify-center bg-gradient-to-br ${
+                    coverStyles[index % coverStyles.length]
+                  }`}
+                >
+                  <Music2
+                    className="text-white/80 transition group-hover:scale-110"
+                    size={42}
+                  />
                 </div>
 
-                <p className="mt-2 line-clamp-2 min-h-10 text-sm text-zinc-400">
-                  {song.prompt}
-                </p>
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="line-clamp-1 font-semibold text-white">
+                      {song.title}
+                    </h3>
+                    <span
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(
+                        song.status
+                      )}`}
+                    >
+                      {song.status}
+                    </span>
+                  </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
-                    {song.genre}
-                  </span>
-                  <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
-                    {song.language}
-                  </span>
-                  <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
-                    {formatDuration(song.durationSeconds)}
-                  </span>
-                </div>
+                  <p className="mt-2 line-clamp-2 min-h-10 text-sm text-zinc-400">
+                    {song.prompt}
+                  </p>
 
-                <div className="mt-5 flex items-center gap-2 border-t border-zinc-800 pt-4 text-xs text-zinc-500">
-                  <Clock3 size={14} />
-                  {formatCreatedAt(song.createdAt)}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
+                      {song.genre}
+                    </span>
+                    <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
+                      {song.language}
+                    </span>
+                    <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
+                      {formatDuration(song.durationSeconds)}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-2 border-t border-zinc-800 pt-4 text-xs text-zinc-500">
+                    <Clock3 size={14} />
+                    {formatCreatedAt(song.createdAt)}
+                  </div>
                 </div>
-              </div>
-            </article>
+              </article>
+            </Link>
           ))}
         </div>
       )}
