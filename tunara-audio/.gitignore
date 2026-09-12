@@ -5,4 +5,5 @@ generated-audio/
 generated-midi/
 generated-openutau/
 generated-packs/
+generated-workbench/
 .env
