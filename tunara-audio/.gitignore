@@ -6,4 +6,5 @@ generated-midi/
 generated-openutau/
 generated-packs/
 generated-workbench/
+generated-stems/
 .env

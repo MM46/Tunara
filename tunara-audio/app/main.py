@@ -6,10 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .composer_v2_service import ComposerV2Service
 from .logic_pack_service import LogicPackService
-from .midi_workbench_models import (
-    MidiWorkbenchRequest,
-    MidiWorkbenchResponse,
-)
+from .midi_workbench_models import MidiWorkbenchRequest, MidiWorkbenchResponse
 from .midi_workbench_service import MidiWorkbenchService
 from .musicgen_service import MusicGenService
 from .openutau_project_service import OpenUtauProjectService
@@ -23,8 +20,10 @@ from .schemas import (
     VocalMelodyRequest,
     VocalMelodyResponse,
 )
+from .stems_renderer_models import StemsRenderRequest, StemsRenderResponse
+from .stems_renderer_service import StemsRendererService
 
-app = FastAPI(title="Tunara Audio", version="0.7.0")
+app = FastAPI(title="Tunara Audio", version="0.8.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -38,6 +37,7 @@ composer_service = ComposerV2Service()
 openutau_service = OpenUtauProjectService()
 logic_pack_service = LogicPackService()
 workbench_service = MidiWorkbenchService()
+stems_renderer_service = StemsRendererService()
 
 for directory in (
     musicgen_service.output_directory,
@@ -45,34 +45,16 @@ for directory in (
     openutau_service.output_directory,
     logic_pack_service.pack_directory,
     workbench_service.output_directory,
+    stems_renderer_service.output_directory,
 ):
     Path(directory).mkdir(parents=True, exist_ok=True)
 
-app.mount(
-    "/audio",
-    StaticFiles(directory=str(musicgen_service.output_directory)),
-    name="audio",
-)
-app.mount(
-    "/midi",
-    StaticFiles(directory=str(composer_service.output_directory)),
-    name="midi",
-)
-app.mount(
-    "/openutau",
-    StaticFiles(directory=str(openutau_service.output_directory)),
-    name="openutau",
-)
-app.mount(
-    "/packs",
-    StaticFiles(directory=str(logic_pack_service.pack_directory)),
-    name="packs",
-)
-app.mount(
-    "/workbench",
-    StaticFiles(directory=str(workbench_service.output_directory)),
-    name="workbench",
-)
+app.mount("/audio", StaticFiles(directory=str(musicgen_service.output_directory)), name="audio")
+app.mount("/midi", StaticFiles(directory=str(composer_service.output_directory)), name="midi")
+app.mount("/openutau", StaticFiles(directory=str(openutau_service.output_directory)), name="openutau")
+app.mount("/packs", StaticFiles(directory=str(logic_pack_service.pack_directory)), name="packs")
+app.mount("/workbench", StaticFiles(directory=str(workbench_service.output_directory)), name="workbench")
+app.mount("/stems", StaticFiles(directory=str(stems_renderer_service.output_directory)), name="stems")
 
 
 @app.get("/health")
@@ -96,10 +78,7 @@ async def melody(request: VocalMelodyRequest):
         raise HTTPException(status_code=502, detail=str(exception)) from exception
 
 
-@app.post(
-    "/api/openutau-projects",
-    response_model=OpenUtauProjectResponse,
-)
+@app.post("/api/openutau-projects", response_model=OpenUtauProjectResponse)
 async def openutau_project(request: OpenUtauProjectRequest):
     try:
         url = await openutau_service.generate(
@@ -126,14 +105,17 @@ async def logic_pack(request: LogicPackRequest):
         raise HTTPException(status_code=502, detail=str(exception)) from exception
 
 
-@app.post(
-    "/api/midi-workbench",
-    response_model=MidiWorkbenchResponse,
-)
-async def midi_workbench(
-    request: MidiWorkbenchRequest,
-) -> MidiWorkbenchResponse:
+@app.post("/api/midi-workbench", response_model=MidiWorkbenchResponse)
+async def midi_workbench(request: MidiWorkbenchRequest):
     try:
         return await workbench_service.generate(request)
+    except Exception as exception:
+        raise HTTPException(status_code=502, detail=str(exception)) from exception
+
+
+@app.post("/api/audio-stems", response_model=StemsRenderResponse)
+async def audio_stems(request: StemsRenderRequest):
+    try:
+        return await stems_renderer_service.render(request)
     except Exception as exception:
         raise HTTPException(status_code=502, detail=str(exception)) from exception

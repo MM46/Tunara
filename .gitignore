@@ -27,3 +27,5 @@ logic-template/*.logicx/
  
 # Local Logic Pro assets
 /logic-template/
+
+/generated-stems/
