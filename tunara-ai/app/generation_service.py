@@ -1,5 +1,6 @@
 from .audio_client import AudioClient
 from .lyrics_service import LyricsService
+from .lyrics_sanitizer import LyricsSanitizer
 from .ollama_client import OllamaClient
 from .schemas import GenerateSongRequest, GenerateSongResponse
 
@@ -8,16 +9,30 @@ class GenerationService:
     def __init__(self) -> None:
         self.lyrics_service = LyricsService(OllamaClient())
         self.audio_client = AudioClient()
+        self.lyrics_sanitizer = LyricsSanitizer()
 
     async def generate(
         self,
         request: GenerateSongRequest,
     ) -> GenerateSongResponse:
-        title, lyrics = await self.lyrics_service.generate(request)
+        title, generated_lyrics = await self.lyrics_service.generate(request)
+        lyrics = self.lyrics_sanitizer.sanitize(
+            generated_lyrics,
+            request.duration_seconds,
+        )
+        minimum_duration = self.lyrics_sanitizer.minimum_duration_seconds(lyrics)
+        generation_request = request.model_copy(
+            update={
+                "duration_seconds": max(
+                    request.duration_seconds,
+                    minimum_duration,
+                )
+            }
+        )
         audio = await self.audio_client.generate_song(
-            request=request,
+            request=generation_request,
             lyrics=lyrics,
-            batch_size=2,
+            batch_size=1,
         )
         wav_urls = audio["wav_urls"]
         return GenerateSongResponse(
@@ -25,7 +40,7 @@ class GenerationService:
             status="COMPLETED",
             progress=100,
             message=(
-                "Lyrics and two ACE-Step WAV samples generated. "
+                "Lyrics and one ACE-Step WAV sample generated. "
                 "MIDI and Logic Pro pack remain pending for the export stage."
             ),
             title=title,

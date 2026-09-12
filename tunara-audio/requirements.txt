@@ -6,3 +6,5 @@ pretty-midi==0.2.11
 PyYAML==6.0.3
 
 python-multipart==0.0.20
+
+mlx-whisper==0.4.3

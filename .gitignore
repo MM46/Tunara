@@ -38,3 +38,7 @@ logic-template/*.logicx/
 /tunara-ai/backup-acestep-*/
 /tunara-ai/app/__pycache__/
 *.pyc
+
+# Vocal QA local outputs
+/generated-vocal-qa/
+/generated-audio/

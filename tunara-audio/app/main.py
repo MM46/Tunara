@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from .vocal_qa_router import router as vocal_qa_router
 from .permanent_audio_router import router as permanent_audio_router
 
 from .composer_v2_service import ComposerV2Service
@@ -25,6 +26,7 @@ from .stems_renderer_models import StemsRenderRequest, StemsRenderResponse
 from .stems_renderer_service import StemsRendererService
 
 app = FastAPI(title="Tunara Audio", version="0.8.0")
+app.include_router(vocal_qa_router)
 app.include_router(permanent_audio_router)
 app.add_middleware(
     CORSMiddleware,
