@@ -41,4 +41,8 @@ class MidiWorkbenchResponse(BaseModel):
     chords_midi_url: str
     bass_midi_url: str
     drums_midi_url: str
+    pads_midi_url: str
+    arpeggio_midi_url: str
+    transitions_midi_url: str
+    counter_melody_midi_url: str
     duration_seconds: float
