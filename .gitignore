@@ -11,3 +11,5 @@ logs/*
 !logs/.gitkeep
 
 generated-midi/
+
+generated-workbench/
