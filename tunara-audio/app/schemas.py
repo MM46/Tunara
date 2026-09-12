@@ -1,10 +1,12 @@
 from pydantic import BaseModel, Field
 
+
 class InstrumentalRequest(BaseModel):
     song_id: str = Field(min_length=1)
     prompt: str = Field(min_length=1, max_length=2000)
     genre: str = Field(min_length=1, max_length=100)
     duration_seconds: int = Field(ge=5, le=600)
+
 
 class InstrumentalResponse(BaseModel):
     song_id: str
@@ -13,11 +15,13 @@ class InstrumentalResponse(BaseModel):
     wav_url: str
     generated_duration_seconds: int
 
+
 class VocalMelodyRequest(BaseModel):
     song_id: str = Field(min_length=1)
     lyrics: str = Field(min_length=1, max_length=20000)
     genre: str = Field(min_length=1, max_length=100)
     duration_seconds: int = Field(ge=10, le=600)
+
 
 class VocalMelodyResponse(BaseModel):
     song_id: str
@@ -27,6 +31,21 @@ class VocalMelodyResponse(BaseModel):
     bpm: int
     note_count: int
     generated_duration_seconds: float
+
+
+class OpenUtauProjectRequest(BaseModel):
+    song_id: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=255)
+    lyrics: str = Field(min_length=1, max_length=20000)
+    bpm: int = Field(ge=40, le=240)
+
+
+class OpenUtauProjectResponse(BaseModel):
+    song_id: str
+    status: str
+    progress: int
+    ustx_url: str
+
 
 class LogicPackRequest(BaseModel):
     song_id: str = Field(min_length=1)
@@ -38,6 +57,7 @@ class LogicPackRequest(BaseModel):
     language: str = Field(min_length=1, max_length=50)
     duration_seconds: int = Field(ge=10, le=600)
     bpm: int = Field(ge=40, le=240)
+
 
 class LogicPackResponse(BaseModel):
     song_id: str
