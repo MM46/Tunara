@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 @Component
@@ -25,7 +26,7 @@ public class TunaraAiClient {
             new SimpleClientHttpRequestFactory();
 
         requestFactory.setConnectTimeout(10_000);
-        requestFactory.setReadTimeout(300_000);
+        requestFactory.setReadTimeout(900_000);
 
         this.restClient = RestClient.builder()
             .baseUrl(baseUrl)
@@ -38,37 +39,58 @@ public class TunaraAiClient {
     public AiGenerateSongResponse generateSong(
         AiGenerateSongRequest request
     ) {
-        byte[] responseBody = restClient
+        return restClient
             .post()
             .uri("/api/generate")
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
             .body(request)
-            .retrieve()
-            .body(byte[].class);
+            .exchange((httpRequest, httpResponse) -> {
+                byte[] responseBody;
 
-        if (responseBody == null || responseBody.length == 0) {
-            throw new IllegalStateException(
-                "Tunara AI returned an empty response"
-            );
-        }
+                try {
+                    responseBody = httpResponse
+                        .getBody()
+                        .readAllBytes();
+                } catch (IOException exception) {
+                    throw new IllegalStateException(
+                        "Unable to read the Tunara AI response",
+                        exception
+                    );
+                }
 
-        try {
-            return jsonMapper.readValue(
-                responseBody,
-                AiGenerateSongResponse.class
-            );
-        } catch (RuntimeException exception) {
-            String rawResponse = new String(
-                responseBody,
-                StandardCharsets.UTF_8
-            );
+                String rawResponse = new String(
+                    responseBody,
+                    StandardCharsets.UTF_8
+                );
 
-            throw new IllegalStateException(
-                "Unable to parse the Tunara AI response: "
-                    + rawResponse,
-                exception
-            );
-        }
+                if (httpResponse.getStatusCode().isError()) {
+                    throw new IllegalStateException(
+                        "Tunara AI returned HTTP "
+                            + httpResponse.getStatusCode().value()
+                            + ": "
+                            + rawResponse
+                    );
+                }
+
+                if (responseBody.length == 0) {
+                    throw new IllegalStateException(
+                        "Tunara AI returned an empty response"
+                    );
+                }
+
+                try {
+                    return jsonMapper.readValue(
+                        responseBody,
+                        AiGenerateSongResponse.class
+                    );
+                } catch (RuntimeException exception) {
+                    throw new IllegalStateException(
+                        "Unable to parse the Tunara AI response: "
+                            + rawResponse,
+                        exception
+                    );
+                }
+            });
     }
 }
