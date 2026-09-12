@@ -29,3 +29,12 @@ logic-template/*.logicx/
 /logic-template/
 
 /generated-stems/
+
+# Local ACE-Step files
+/.env.ace-step.local
+/.update-backups/
+/ace-step-results/
+/start-ace-step-local.sh
+/tunara-ai/backup-acestep-*/
+/tunara-ai/app/__pycache__/
+*.pyc
