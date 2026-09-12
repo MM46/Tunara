@@ -2,8 +2,10 @@ from fastapi import FastAPI, HTTPException
 
 from .generation_service import GenerationService
 from .schemas import GenerateSongRequest, GenerateSongResponse
+from .song_plan_router import router as song_plan_router
 
-app = FastAPI(title="Tunara AI", version="0.2.0")
+app = FastAPI(title="Tunara AI", version="0.3.0")
+app.include_router(song_plan_router)
 service = GenerationService()
 
 
