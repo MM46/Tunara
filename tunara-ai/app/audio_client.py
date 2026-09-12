@@ -10,19 +10,19 @@ import httpx
 class AudioClient:
     def __init__(self) -> None:
         self.base_url = os.getenv(
-            "ACESTEP_BASE_URL",
-            "http://127.0.0.1:8010",
+            "ACESTEP_BASE_URL", "http://127.0.0.1:8010"
         ).rstrip("/")
         self.public_base_url = os.getenv(
-            "ACESTEP_PUBLIC_BASE_URL",
-            "http://localhost:8010",
+            "ACESTEP_PUBLIC_BASE_URL", "http://localhost:8010"
+        ).rstrip("/")
+        self.tunara_audio_url = os.getenv(
+            "TUNARA_AUDIO_BASE_URL", "http://127.0.0.1:8001"
         ).rstrip("/")
         self.timeout = float(os.getenv("ACESTEP_TIMEOUT_SECONDS", "1800"))
         self.poll_seconds = float(os.getenv("ACESTEP_POLL_SECONDS", "3"))
         self.model = os.getenv("ACESTEP_MODEL", "acestep-v15-turbo")
         self.lm_model = os.getenv(
-            "ACESTEP_LM_MODEL",
-            "acestep-5Hz-lm-1.7B",
+            "ACESTEP_LM_MODEL", "acestep-5Hz-lm-1.7B"
         )
         self.lm_backend = os.getenv("ACESTEP_LM_BACKEND", "mlx")
 
@@ -62,8 +62,7 @@ class AudioClient:
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             release = await client.post(
-                f"{self.base_url}/release_task",
-                json=payload,
+                f"{self.base_url}/release_task", json=payload
             )
             release.raise_for_status()
             task_id = self._find_value(release.json(), "task_id")
@@ -93,13 +92,24 @@ class AudioClient:
                             raise RuntimeError(
                                 "ACE-Step completed without audio files"
                             )
+                        permanent_urls = []
+                        for index, reference in enumerate(references):
+                            permanent_id = (
+                                request.song_id
+                                if index == 0
+                                else f"{request.song_id}-candidate-{index + 1}"
+                            )
+                            permanent_urls.append(
+                                await self._persist_audio(
+                                    client,
+                                    permanent_id,
+                                    reference,
+                                )
+                            )
                         metadata = results[0].get("metas", {}) or {}
                         return {
                             "task_id": str(task_id),
-                            "wav_urls": [
-                                self._public_audio_url(value)
-                                for value in references
-                            ],
+                            "wav_urls": permanent_urls,
                             "audio_paths": references,
                             "bpm": metadata.get("bpm"),
                             "duration": metadata.get("duration"),
@@ -116,6 +126,35 @@ class AudioClient:
         raise TimeoutError(
             f"ACE-Step exceeded timeout of {self.timeout} seconds"
         )
+
+    async def _persist_audio(
+        self,
+        client: httpx.AsyncClient,
+        song_id: str,
+        reference: str,
+    ) -> str:
+        source_url = self._internal_audio_url(reference)
+        source = await client.get(source_url)
+        source.raise_for_status()
+
+        stored = await client.post(
+            f"{self.tunara_audio_url}/api/permanent-audio/{song_id}",
+            files={
+                "audio": (
+                    "ace-step-output.wav",
+                    source.content,
+                    source.headers.get("content-type", "audio/wav"),
+                )
+            },
+        )
+        stored.raise_for_status()
+        payload = stored.json()
+        wav_url = str(payload.get("wav_url", "")).strip()
+        if not wav_url:
+            raise RuntimeError(
+                f"Tunara Audio returned no permanent WAV URL: {stored.text}"
+            )
+        return wav_url
 
     def _build_caption(self, request: Any) -> str:
         parts = [request.prompt.strip(), request.genre.strip()]
@@ -138,23 +177,18 @@ class AudioClient:
     def _result_audio_reference(self, result: dict[str, Any]) -> str:
         return str(result.get("file") or result.get("wave") or "").strip()
 
-    def _public_audio_url(self, reference: str) -> str:
+    def _internal_audio_url(self, reference: str) -> str:
         if reference.startswith("/v1/audio?"):
-            return f"{self.public_base_url}{reference}"
-
+            return f"{self.base_url}{reference}"
         if reference.startswith("http://") or reference.startswith("https://"):
             parsed = urlparse(reference)
             if parsed.path == "/v1/audio":
                 suffix = parsed.path
                 if parsed.query:
                     suffix += f"?{parsed.query}"
-                return f"{self.public_base_url}{suffix}"
+                return f"{self.base_url}{suffix}"
             return reference
-
-        return (
-            f"{self.public_base_url}/v1/audio?path="
-            f"{quote(reference, safe='')}"
-        )
+        return f"{self.base_url}/v1/audio?path={quote(reference, safe='')}"
 
     def _find_value(self, value: Any, key: str) -> Any:
         if isinstance(value, dict):
@@ -172,9 +206,7 @@ class AudioClient:
         return None
 
     def _find_task_item(
-        self,
-        value: Any,
-        task_id: str,
+        self, value: Any, task_id: str
     ) -> dict[str, Any] | None:
         if isinstance(value, dict):
             if str(value.get("task_id", "")) == task_id:

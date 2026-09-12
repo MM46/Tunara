@@ -29,6 +29,7 @@ if is_port_open 8000; then printf '[OK] Tunara AI is already listening on port 8
   docker run -d --name tunara-ai-service -p 8000:8000 \
     -e ACESTEP_BASE_URL=http://host.docker.internal:8010 \
     -e ACESTEP_TIMEOUT_SECONDS=1800 \
+    -e TUNARA_AUDIO_BASE_URL=http://host.docker.internal:8001 \
     -e ACESTEP_PUBLIC_BASE_URL=http://localhost:8010 \
     tunara-ai >"$PID_DIR/ai-container.id"
   printf '[STARTED] Tunara AI container\n'
