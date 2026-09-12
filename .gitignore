@@ -13,3 +13,17 @@ logs/*
 generated-midi/
 
 generated-workbench/
+
+# Local Logic Pro production template
+logic-template/*.logicx/
+ 
+# Generated music artifacts
+/generated-audio/
+/generated-packs/
+/generated-midi/
+/generated-openutau/
+/generated-workbench/
+/logic-renders/
+ 
+# Local Logic Pro assets
+/logic-template/
